@@ -84,6 +84,7 @@ def process_new():
             CACHE.set(
                 "{}{}".format(Keys.processing.value, uuid),
                 res["CharacterID"],
+                timeout=7200,
             )
 
             WORKERS.append(
@@ -98,6 +99,8 @@ def build_urls(scopes, roles, spec,  # pylint: disable=R0914,R0912
     ignored = [
         "/loyalty/stores/{corporation_id}/offers/",
         "/characters/{character_id}/search/",
+        "/corporations/{corporation_id}/contracts/{contract_id}/bids/"
+        "/corporations/{corporation_id}/contracts/{contract_id}/items/",
     ]
 
     urls = []
