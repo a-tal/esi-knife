@@ -101,6 +101,7 @@ def build_urls(scopes, roles, spec,  # pylint: disable=R0914,R0912
         "/characters/{character_id}/search/",
         "/corporations/{corporation_id}/contracts/{contract_id}/bids/",
         "/corporations/{corporation_id}/contracts/{contract_id}/items/",
+        "/characters/{character_id}/opportunities/"
     ]
 
     urls = []
