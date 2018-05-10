@@ -1,0 +1,53 @@
+* {
+  margin: 0;
+}
+html {
+  width: 100%;
+}
+body {
+  background: #1c1c1c none repeat scroll 0 0;
+  font-family: "Roboto", "Helvetica Neue", "Helvetica", "Arial", sans-serif;
+  padding: 0;
+  text-align: center;
+  color: #e4e4e4;
+  height: 100%;
+  width: 80%;
+  margin: 0 auto;
+}
+h1 {
+  padding: 1em;
+  font-size: xx-large;
+}
+h1 a {
+  text-decoration: none;
+}
+h2 {
+  padding: 1em;
+}
+div {
+  padding: 2em;
+}
+p {
+  text-align: left;
+  margin: 1em 0;
+}
+a {
+  color: #e4e4e4;
+}
+label::after {
+  content: ":";
+}
+input[type=submit] {
+  padding: 0.5em 2em;
+  background-color: #e4e4e4;
+  -webkit-border-radius: 5px;
+  border-radius: 5px;
+  border: 0 none;
+  cursor: pointer;
+}
+input#knife {
+  font-size: xx-large;
+  padding: 1em 4em;
+  background: #d70000;
+  color: #e4e4e4;
+}

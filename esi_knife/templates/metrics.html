@@ -1,0 +1,23 @@
+<html>
+ <head>
+  <title>ESI Knife Metrics</title>
+  <style>
+{% include "style.css" %}
+  </style>
+ </head>
+ <body>
+  <div>
+   <h1><a href="/" title="fancy logo here">ESI Knife</a></h1>
+  </div>
+  <div>
+   <p>New: {{ new }}</p>
+   <p>Pending: {{ pending }}</p>
+   <p>Processing: {{ processing }}</p>
+   <p>Completed: {{ completed }}</p>
+   <p>Worker alive: {{ worker }}</p>
+  </div>
+  <div>
+   <p>Metrics are cached for 60 seconds. Last updated {{ now }}</p>
+  </div>
+ </body>
+</html>

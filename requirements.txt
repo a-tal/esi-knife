@@ -1,0 +1,8 @@
+requests
+docopt
+jsonderef
+gunicorn
+gevent
+flask
+flask-cache-cassandra
+ujson

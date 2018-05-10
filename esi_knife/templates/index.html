@@ -1,0 +1,45 @@
+<html>
+ <head>
+  <title>ESI Knife</title>
+  <style>
+{% include "style.css" %}
+  </style>
+ </head>
+ <body>
+  <div>
+   <h1><a href="/" title="fancy logo here">ESI Knife</a></h1>
+  </div>
+  <div>
+   <h2>Knife yourself?</h2>
+   <form action="/knife"><input type="submit" value="Knife me" id="knife" title="do it"></form>
+  </div>
+  <div>
+   <h2>View someone's results?</h2>
+   <form action="/view">
+     <label for="token">Token</label>
+     <input type="text" name="token" id="token"></input>
+     <input type="submit" value="View">
+   </form>
+  </div>
+  <div>
+   <h2>What is this site?</h2>
+   <p>This will fetch all of your character, corporation and alliance data from ESI that your character has access to view.</p>
+   <p>Click the "knife me" button, sign in with SSO, then you will be given a unique token (not the same as the SSO access token) which you can use to get the results when they're ready. You can then share this token with whoever you like.</p>
+   <p>Your data will automatically be purged (at most) 7 days after the last time it was viewed.</p>
+   <h2>Are you stealing my data?</h2>
+   <p>Nope. If I wanted your data I could use other means than this site. There's also no refresh token created, so you don't need to worry about anyone keeping tabs on you. If you really don't want to trust me, you can always <a href="https://github.com/a-tal/esi-knife/">deploy this site's code yourself</a>.</p>
+   <p>Be mindful if you're logged in when you run this, it will show your location, ship type, and potentially fleet.</p>
+   <h2>Wait, are you CCP?</h2>
+   <p>Yeah, but this is a personal project. This is not endorsed by CCP Games nor any sort of "official" service. This was made entirely in my off-work time.</p>
+   <h2>Can I help?</h2>
+   <p>For sure, <a href="https://github.com/a-tal/esi-knife/">pull requests are always welcome.</a></p>
+   <h2>Can I use this for my corp's recruitment?</h2>
+   <p>Sure, go for it. I do ask though if you run a larger corp to host your own copy. This is being hosted personally, so if it starts using too much bandwidth I'll probably just take it down.</p>
+   <h2>Do you accept ISK donations?</h2>
+   <p>No, thanks though.</p>
+  </div>
+  <div>
+   <p><a href="/metrics">Metrics?</a></p>
+  </div>
+ </body>
+</html>
