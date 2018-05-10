@@ -54,7 +54,6 @@ SCOPES = parse.quote(" ".join([
     "esi-calendar.read_calendar_events.v1",
     "esi-characters.read_agents_research.v1",
     "esi-characters.read_blueprints.v1",
-    "esi-characters.read_chat_channels.v1",
     "esi-characters.read_contacts.v1",
     "esi-characters.read_corporation_roles.v1",
     "esi-characters.read_fatigue.v1",
@@ -104,7 +103,6 @@ SCOPES = parse.quote(" ".join([
     "esi-skills.read_skills.v1",
     "esi-universe.read_structures.v1",
     "esi-wallet.read_character_wallet.v1",
-    "esi-wallet.read_corporation_wallet.v1",
     "esi-wallet.read_corporation_wallets.v1",
 ]))
 
