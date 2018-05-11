@@ -14,6 +14,13 @@ Large corporations think about running your own please. This is self-hosted, ple
 
 No. Not in any way shape or form. This is entirely a personal project.
 
+## Getting started
+
+ 1. Copy `env.example` to `.env`.
+ 2. Edit `.env` to set your values. Use https://developers.eveonline.com/applications to find your client id and to set your callback.
+ 3. Run `docker-compose build`.
+ 4. Run `source .env && docker-compose up`.
+
 ## TODOs
 
 If you want to help out with something from here pull requests are very welcomed.

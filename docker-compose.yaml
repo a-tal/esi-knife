@@ -1,0 +1,8 @@
+version: '3'
+services:
+  knife:
+    build: .
+    ports:
+      - "8080:8080/tcp"
+  redis:
+    image: "redis:alpine"
