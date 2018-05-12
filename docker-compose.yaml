@@ -2,7 +2,15 @@ version: '3'
 services:
   knife:
     build: .
+    image: knife
+    environment:
+      - KNIFE_CALLBACK_URL=http://localhost:8888/callback
+      - KNIFE_CLIENT_ID=bfca2dd3c89a4a3bb09bdadd9e3908e8
+    volumes:
+      - data:/data
     ports:
-      - "8080:8080/tcp"
+      - "8888:8080/tcp"
   redis:
     image: "redis:alpine"
+volumes:
+  data:

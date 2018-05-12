@@ -16,10 +16,10 @@ No. Not in any way shape or form. This is entirely a personal project.
 
 ## Getting started
 
- 1. Copy `env.example` to `.env`.
- 2. Edit `.env` to set your values. Use https://developers.eveonline.com/applications to find your client id and to set your callback.
- 3. Run `docker-compose build`.
- 4. Run `source .env && docker-compose up`.
+ 1. Run `docker-compose up`
+ 2. Go to http://localhost:8888/
+
+Everything should "just work". If you need to adjust the SSO callback or exposed port, the environment variables are configured in the `docker-compose.yaml` file.
 
 ## TODOs
 
