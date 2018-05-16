@@ -25,6 +25,7 @@ ADDITIONAL_PARAMS = {
         "fitting_id": "/characters/{character_id}/fittings/",
         "label_id": "/characters/{character_id}/mail/labels/",
         "planet_id": "/characters/{character_id}/planets/",
+        "mail_id": "/characters/{character_id}/mail/",
     },
     "corporation_id": {
         "observer_id": "/corporation/{corporation_id}/mining/observers/",
@@ -194,6 +195,8 @@ def expand_params(scopes, roles, spec,  # pylint: disable=R0914,R0913
             lambda x: [i["event_id"] for i in x],
         "/characters/{character_id}/contracts/": \
             lambda x: [i["contract_id"] for i in x],
+        "/characters/{character_id}/mail/": \
+            lambda x: [i["mail_id"] for i in x],
         "/corporations/{corporation_id}/calendar/": \
             lambda x: [i["event_id"] for i in x],
         "/corporations/{corporation_id}/contracts/": \
