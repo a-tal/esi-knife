@@ -18,8 +18,10 @@ from esi_knife import __version__
 from esi_knife import Keys
 from esi_knife import ESI
 from esi_knife import LOG
-from esi_knife import DATA
 from esi_knife import CACHE
+
+
+EXPIRY = 604800  # 7 days
 
 
 def new_session():
@@ -37,59 +39,26 @@ def new_session():
 SESSION = new_session()
 
 
-def get_json(url, params=None, wait=True):
-    """Request the url with our requests session (GET only)."""
+def get_data(uuid):
+    """Open and return the character's data."""
 
+    cache_key = "{}{}".format(Keys.complete.value, uuid)
     try:
-        res = SESSION.get(url, params=params or {})
-        res.raise_for_status()
-        return url, res.json()
+        content = CACHE.get(cache_key)
     except Exception as error:
-        if wait and (res.status_code == 420):
-            # error limited. wait out the window then carry on
-            gevent.sleep(
-                int(res.headers.get("X-Esi-Error-Limit-Reset", 1)) + 1
-            )
-            return get_json(url, params=params)
-        try:
-            content = res.json()
-        except Exception:
-            try:
-                content = res.text
-            except Exception:
-                content = None
-
-        return url, "Error fetching data: {} {}".format(
-            res.status_code,
-            content,
-        )
-
-
-def get_data(filename, decompress=True):
-    """Open and return the content from file."""
-
-    filepath = os.path.join(DATA, filename)
-    try:
-        with open(filepath, "r") as openfile:
-            content = openfile.read()
-    except Exception as error:
-        LOG.warning("failed to open %s: %r", filename, error)
+        LOG.warning("failed to get %s: %r", cache_key, error)
     else:
+        if content is None:
+            return None
+
         try:
-            if decompress:
-                return ujson.loads(gzip.decompress(base64.b64decode(content)))
-            return ujson.loads(content)
+            return ujson.loads(gzip.decompress(base64.b64decode(content)))
         except Exception as error:
-            LOG.warning("failed to decode %s: %r", filename, error)
+            LOG.warning("failed to decode %s: %r", content, error)
+        else:
+            CACHE.cache._client.expire(cache_key, EXPIRY)
 
     return None
-
-
-def list_data():
-    """Return a list of known data files."""
-
-    # TODO: should probably put this in a real db...
-    return [x for x in os.listdir(DATA) if not x.startswith(".")]
 
 
 def list_keys(prefix):
@@ -108,22 +77,19 @@ def write_data(uuid, data):
     """Try to store the data, log errors."""
 
     try:
-        _write_data(uuid, data)
+        CACHE.set(
+            "{}{}".format(Keys.complete.value, uuid),
+            codecs.decode(
+                base64.b64encode(gzip.compress(codecs.encode(
+                    ujson.dumps(data),
+                    "utf-8",
+                ))),
+                "utf-8",
+            ),
+            timeout=EXPIRY,
+        )
     except Exception as error:
         LOG.warning("Failed to save data: %r", error)
-
-
-def _write_data(uuid, data):
-    """Store the data."""
-
-    with open(os.path.join(DATA, uuid), "w") as openresult:
-        openresult.write(codecs.decode(
-            base64.b64encode(gzip.compress(codecs.encode(
-                ujson.dumps(data),
-                "utf-8",
-            ))),
-            "utf-8",
-        ))
 
 
 def request_or_wait(url, *args, _as_res=False, **kwargs):
@@ -164,11 +130,8 @@ def refresh_spec():
         dictionary: JSON loaded swagger spec
     """
 
-    spec_file = os.path.join(DATA, ".esi.json")
-    if os.path.isfile(spec_file):
-        with open(spec_file, "r") as open_spec:
-            spec_details = ujson.loads(open_spec.read())
-    else:
+    spec_details = CACHE.get("esi.json")
+    if spec_details is None:
         spec_details = {"timestamp": 0}
 
     if time.time() - spec_details["timestamp"] > 300:
@@ -192,8 +155,7 @@ def refresh_spec():
             spec_details["etag"] = res.headers.get("ETag")
             spec_details["spec"] = JsonDeref().deref(res.json())
 
-        with open(spec_file, "w") as new_spec:
-            new_spec.write(ujson.dumps(spec_details))
+        CACHE.set("esi.json", spec_details, timeout=3600)
 
     return spec_details["spec"]
 
@@ -218,7 +180,7 @@ def rate_limit():
 
     key = "".join((Keys.rate_limit.value, get_ip()))
     requests = CACHE.get(key) or 0
-    if requests >= 5:
+    if requests >= 20:
         return True
 
     CACHE.set(key, requests + 1, timeout=60)

@@ -84,13 +84,16 @@ def get_knife():
         )
 
     if "token" in request.args:
-        results = utils.get_data(request.args["token"])
+        uuid = request.args["token"]
+        results = utils.get_data(uuid)
         if results is None:
-            if "e" in request.args and request.args["e"] == "pending":
-                return render_template(
-                    "pending.html",
-                    token=request.args["token"],
-                )
+            for state in (Keys.pending, Keys.processing, Keys.new):
+                if utils.list_keys("{}{}".format(state.value, uuid)):
+                    return render_template(
+                        "pending.html",
+                        token=uuid,
+                        state=state.value,
+                    )
             return redirect("/?e=invalid_token")
 
         return Response(
@@ -111,7 +114,7 @@ def metrics_index():
         new=len(utils.list_keys(Keys.new.value)),
         pending=len(utils.list_keys(Keys.pending.value)),
         processing=len(utils.list_keys(Keys.processing.value)),
-        completed=len(utils.list_data()),
+        completed=len(utils.list_keys(Keys.complete.value)),
         worker=not APP.knife_worker.dead,
         now=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
     )

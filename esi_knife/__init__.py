@@ -16,11 +16,10 @@ if sys.version_info < (3, 4):
     raise SystemExit("Python 3.5+ required")
 
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 
 
 ESI = os.environ.get("ESI_BASE_URL", "https://esi.evetech.net")
-DATA = os.environ.get("KNIFE_DATA_PATH", "/data")
 
 APP = Flask(__name__)
 
@@ -124,3 +123,4 @@ class Keys(enum.Enum):
     pending = "pending."
     processing = "processing."
     rate_limit = "ratelimit."
+    complete = "complete."
