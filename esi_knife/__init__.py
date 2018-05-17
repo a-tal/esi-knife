@@ -124,3 +124,5 @@ class Keys(enum.Enum):
     processing = "processing."
     rate_limit = "ratelimit."
     complete = "complete."
+    alltime = "alltime."
+    spec = "esijson."

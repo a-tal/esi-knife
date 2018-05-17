@@ -318,6 +318,7 @@ def knife(uuid, token, verify, roles):  # pylint: disable=R0914
 
     utils.write_data(uuid, results)
     CACHE.delete("{}{}".format(Keys.processing.value, uuid))
+    CACHE.cache.inc(Keys.alltime.value, 1)
     LOG.warning("completed character: %r", character_id)
 
 

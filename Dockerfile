@@ -10,6 +10,11 @@ COPY . /src
 RUN pip install -q . && rm -rf /src
 WORKDIR /
 
+RUN addgroup --system knife && \
+    adduser --system --group knife
+
+USER knife
+
 CMD gunicorn \
     --threads ${THREADS-1000} \
     --workers ${WORKERS-1} \

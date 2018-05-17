@@ -130,7 +130,7 @@ def refresh_spec():
         dictionary: JSON loaded swagger spec
     """
 
-    spec_details = CACHE.get("esi.json")
+    spec_details = CACHE.get(Keys.spec.value)
     if spec_details is None:
         spec_details = {"timestamp": 0}
 
@@ -155,7 +155,7 @@ def refresh_spec():
             spec_details["etag"] = res.headers.get("ETag")
             spec_details["spec"] = JsonDeref().deref(res.json())
 
-        CACHE.set("esi.json", spec_details, timeout=3600)
+        CACHE.set(Keys.spec.value, spec_details, timeout=3600)
 
     return spec_details["spec"]
 

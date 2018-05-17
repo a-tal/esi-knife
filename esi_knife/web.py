@@ -105,7 +105,7 @@ def get_knife():
 
 
 @APP.route("/metrics", methods=["GET"])
-@CACHE.cached(timeout=60)
+@CACHE.cached(timeout=20)
 def metrics_index():
     """Display some metrics."""
 
@@ -115,6 +115,7 @@ def metrics_index():
         pending=len(utils.list_keys(Keys.pending.value)),
         processing=len(utils.list_keys(Keys.processing.value)),
         completed=len(utils.list_keys(Keys.complete.value)),
+        alltime=CACHE.get(Keys.alltime.value) or 0,
         worker=not APP.knife_worker.dead,
         now=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
     )
