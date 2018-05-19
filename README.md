@@ -6,7 +6,7 @@ It's like jackknife, but for ESI.
 
 This will fetch all data about your character, your corporation and/or alliance that it can from ESI. It will compress and save this content into a file, which you could then share and/use with other applications.
 
-This is a web front end to the above functionality. A command line interface is planned to be re-introduced soonish (prototype was a CLI).
+This repo is both a web frontend and contains a CLI. The CLI is only useful for local/self use. The `.knife` files should not be considered tamper-proof in any way. If you are sharing your results with another party, the only trusted way to do so is via a web deployment.
 
 Large corporations think about running your own please. This is self-hosted, please don't chew through my bandwidth.
 
@@ -25,7 +25,6 @@ Everything should "just work". If you need to adjust the SSO callback or exposed
 
 If you want to help out with something from here pull requests are very welcomed.
 
-- javascript parse and display the /view results
 - requests client caching
 - styling is kinda p bad in general
 

@@ -6,6 +6,7 @@ import time
 import base64
 import codecs
 
+import redis
 import ujson
 import gevent
 import requests
@@ -155,7 +156,14 @@ def refresh_spec():
         dictionary: JSON loaded swagger spec
     """
 
-    spec_details = CACHE.get(Keys.spec.value)
+    try:
+        spec_details = CACHE.get(Keys.spec.value)
+    except redis.exceptions.ConnectionError:
+        spec_details = None
+        save_results = False
+    else:
+        save_results = True
+
     if spec_details is None:
         spec_details = {"timestamp": 0}
 
@@ -180,7 +188,8 @@ def refresh_spec():
             spec_details["etag"] = res.headers.get("ETag")
             spec_details["spec"] = JsonDeref().deref(res.json())
 
-        CACHE.set(Keys.spec.value, spec_details, timeout=3600)
+        if save_results:
+            CACHE.set(Keys.spec.value, spec_details, timeout=3600)
 
     return spec_details["spec"]
 

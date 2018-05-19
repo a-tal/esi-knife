@@ -35,7 +35,7 @@ setup(
     url="https://esi.a-t.al/",
     entry_points={
         "console_scripts": [
-            # "knife = esi_knife.knife:main",  # TODO
+            "knife = esi_knife.cli:main",
             "knife-worker = esi_knife.worker:main",
         ],
     },

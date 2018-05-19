@@ -509,6 +509,26 @@ def _add_names(results):
     _apply_all_ids(results, resolved)
 
 
+def get_results(public, character_id, scopes, roles, headers):
+    """Expand parameters and fetch all results."""
+
+    all_params = copy.deepcopy(ADDITIONAL_PARAMS)
+
+    known_params = {"character_id": character_id}
+
+    if public["corporation_id"] > 2000000:
+        known_params["corporation_id"] = public["corporation_id"]
+    else:
+        all_params.pop("corporation_id")
+
+    if "alliance_id" in public:
+        known_params["alliance_id"] = public["alliance_id"]
+
+    results = _get_all_data(scopes, roles, known_params, all_params, headers)
+    _add_names(results)
+    return results
+
+
 def knife(uuid, token, verify, roles):  # pylint: disable=R0914
     """Pull all ESI data for a character_id.
 
@@ -533,21 +553,8 @@ def knife(uuid, token, verify, roles):  # pylint: disable=R0914
         utils.write_data(uuid, {"public info failure": public})
         return
 
-    all_params = copy.deepcopy(ADDITIONAL_PARAMS)
-
-    known_params = {"character_id": character_id}
-
-    if public["corporation_id"] > 2000000:
-        known_params["corporation_id"] = public["corporation_id"]
-    else:
-        all_params.pop("corporation_id")
-
-    if "alliance_id" in public:
-        known_params["alliance_id"] = public["alliance_id"]
-
     headers = {"Authorization": "Bearer {}".format(token)}
-    results = _get_all_data(scopes, roles, known_params, all_params, headers)
-    _add_names(results)
+    results = get_results(public, character_id, scopes, roles, headers)
 
     utils.write_data(uuid, results)
     CACHE.delete("{}{}".format(Keys.processing.value, uuid))
