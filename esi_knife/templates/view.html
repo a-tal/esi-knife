@@ -255,7 +255,10 @@ function cmp(v1, v2){
 var children = $("content").firstChild.children;
 for (i=0; i < children.length; i++) {
   if (children[i].className == "ib") {
-    children[i].classList.add("expanded");
+    children[i].classList.add("collapsed");
+    if (children[i].nextSibling != null && children[i].nextSibling.tagName == "DD") {
+      children[i].nextSibling.hidden = ! children[i].nextSibling.hidden;
+    }
     children[i].onclick = function(e) {
       if (e.target.nextSibling != null && e.target.nextSibling.tagName == "DD") {
         e.target.nextSibling.hidden = ! e.target.nextSibling.hidden;
