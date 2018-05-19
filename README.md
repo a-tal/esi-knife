@@ -26,7 +26,6 @@ Everything should "just work". If you need to adjust the SSO callback or exposed
 If you want to help out with something from here pull requests are very welcomed.
 
 - javascript parse and display the /view results
-- automatic x-pages expansion
 - requests client caching
 - styling is kinda p bad in general
 
