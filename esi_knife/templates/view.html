@@ -268,6 +268,12 @@ for (i=0; i < children.length; i++) {
     };
   };
 };
+
+// Makes the EVE flavoured HTML look a bit more normal
+for (let e of document.getElementsByTagName("font")){
+  e.setAttribute("size",(e.getAttribute("size")/12)*3);
+  e.setAttribute("color","#"+e.getAttribute("color").substr(3));
+}
   </script>
  </body>
 </html>
