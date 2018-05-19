@@ -56,7 +56,10 @@ def get_data(uuid):
         except Exception as error:
             LOG.warning("failed to decode %s: %r", content, error)
         else:
-            CACHE.cache._client.expire(cache_key, EXPIRY)
+            CACHE.cache._client.expire(  # pylint: disable=protected-access
+                cache_key,
+                EXPIRY,
+            )
 
     return None
 
@@ -92,7 +95,8 @@ def write_data(uuid, data):
         LOG.warning("Failed to save data: %r", error)
 
 
-def request_or_wait(url, *args, _as_res=False, page=None, **kwargs):
+def request_or_wait(url, *args, _as_res=False, page=None, method="get",
+                    **kwargs):
     """Request the URL, or wait if we're error limited."""
 
     check_x_pages = True
@@ -105,7 +109,7 @@ def request_or_wait(url, *args, _as_res=False, page=None, **kwargs):
         LOG.warning("requesting: %s", url)
 
     try:
-        res = SESSION.get(url, *args, **kwargs)
+        res = getattr(SESSION, method)(url, *args, **kwargs)
         res.raise_for_status()
     except Exception as err:
         try:
@@ -116,7 +120,7 @@ def request_or_wait(url, *args, _as_res=False, page=None, **kwargs):
                 # error limited. wait out the window then carry on
                 gevent.sleep(wait)
                 return request_or_wait(url, *args, _as_res=_as_res, page=page,
-                                       **kwargs)
+                                       method=method, **kwargs)
         except Exception as error:
             LOG.warning("error handling error: %r: %r", err, error)
 

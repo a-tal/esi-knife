@@ -1,6 +1,7 @@
 """Background processor for ESI knife."""
 
 
+import re
 import gc
 import copy
 from traceback import format_exception
@@ -305,45 +306,10 @@ def expand_params(scopes, roles, spec,  # pylint: disable=R0914,R0913
     return expansion_results
 
 
-def knife(uuid, token, verify, roles):  # pylint: disable=R0914
-    """Pull all ESI data for a character_id.
-
-    Args:
-        uuid: string uuid token
-        token: SSO access token
-        verify: dictionary return from /verify/
-        roles: list of corporation roles
-    """
-
-    character_id = verify["CharacterID"]
-    LOG.warning("knife run started for character: %s", character_id)
-
-    scopes = verify["Scopes"]
-
-    _, _, public = utils.request_or_wait(
-        "{}/latest/characters/{}/".format(ESI, character_id)
-    )
-
-    if isinstance(public, str):
-        CACHE.delete("{}{}".format(Keys.processing.value, uuid))
-        utils.write_data(uuid, {"public info failure": public})
-        return
-
-    all_params = copy.deepcopy(ADDITIONAL_PARAMS)
-
-    known_params = {"character_id": character_id}
-
-    if public["corporation_id"] > 2000000:
-        known_params["corporation_id"] = public["corporation_id"]
-    else:
-        all_params.pop("corporation_id")
-
-    if "alliance_id" in public:
-        known_params["alliance_id"] = public["alliance_id"]
+def _get_all_data(scopes, roles, known_params, all_params, headers):
+    """Retrieve all data for the parameters."""
 
     spec = utils.refresh_spec()
-    headers = {"Authorization": "Bearer {}".format(token)}
-
     results = expand_params(
         scopes,
         roles,
@@ -399,6 +365,189 @@ def knife(uuid, token, verify, roles):  # pylint: disable=R0914
             data.extend(pages[page])
         if data:
             results[url] = data
+
+    return results
+
+
+# attribute keys that can be resolved via /universe/names/
+ID_KEYS = [
+    "type_id",
+    "creator_id",
+    "creator_corporation_id",
+    "executor_corporation_id",
+    "contact_id",
+    "alliance_id",
+    "corporation_id",
+    "issuer_corporation_id",
+    "issuer_id",
+    "ship_type_id",
+    "installer_id",
+    "blueprint_type_id",
+    "product_type_id",
+    "solar_system_id",
+    # "from",  /mail/, can include mailing lists though
+    # "recipient_id",  /mail/, can include mailing lists though
+    # "sender_id",  /notifications/, can include factions though
+    "region_id",
+    # "planet_id",  use /universe/planets/{planet_id}/
+    "skill_id",
+    # "first_party_id",  includes factions
+    # "second_party_id",  includes factions
+    "tax_receiver_id",
+    "client_id",
+    "ceo_id",
+    "home_station_id",
+    "assignee_id",
+]
+
+# TODO
+LOCATION_ID_KEYS = [
+    "location_id",
+    "end_location_id",
+    "start_location_id",
+    "blueprint_location_id",
+    "facility_id",
+    "output_location_id",
+    # "station_id",  # in industry/jobs, double check if this can be a cit
+]
+
+RAW_ID_KEYS = [
+    re.compile(r".*/alliances/(?P<alliance_id>[0-9]+)/corporations/$"),
+    re.compile(r".*/characters/(?P<character_id>[0-9]+)/implants/$"),
+    re.compile(r".*/corporations/(?P<corporation_id>[0-9]+)/members/$"),
+]
+
+
+def _recurse_for_ids(data):
+    """Find as many ids as we can."""
+
+    ids = []
+
+    if isinstance(data, dict):
+        for key, val in data.items():
+            if isinstance(val, int) and key in ID_KEYS:
+                ids.append(val)
+            elif isinstance(val, (list, dict)):
+                ids.extend(_recurse_for_ids(val))
+
+    elif isinstance(data, list):
+        for item in data:
+            ids.extend(_recurse_for_ids(item))
+
+    return ids
+
+
+def _get_all_ids(results):
+    """Pull all the ids from results."""
+
+    ids = []
+
+    for route, data in results.items():
+        for route_re in RAW_ID_KEYS:
+            if re.match(route_re, route) and isinstance(data, list):
+                ids.extend(data)
+                break
+        else:
+            ids.extend(_recurse_for_ids(data))
+
+    return list(set(ids))  # lazy de-dupe
+
+
+def _recurse_apply_ids(data, ids):
+    """Apply name keys for found ids."""
+
+    if isinstance(data, dict):
+        for key in list(data.keys()):
+            if isinstance(data[key], int):
+                if key in ID_KEYS and data[key] in ids:
+                    data["{}_name".format(key)] = ids[data[key]]
+            elif isinstance(data[key], (list, dict)):
+                _recurse_apply_ids(data[key], ids)
+
+    elif isinstance(data, list):
+        for item in data:
+            _recurse_apply_ids(item, ids)
+
+
+def _apply_all_ids(results, ids):
+    """Apply keys to raw results then recurse into the rest."""
+
+    for route in list(results.keys()):
+        for route_re in RAW_ID_KEYS:
+            if re.match(route_re, route) and isinstance(results[route], list):
+                normalized = []
+                for item in results[route]:
+                    new_item = {"id": item}
+                    if item in ids:
+                        new_item["name"] = ids[item]
+                    normalized.append(new_item)
+                results[route] = normalized
+                break
+        else:
+            _recurse_apply_ids(results[route], ids)
+
+
+def _add_names(results):
+    """Best-effort resolve IDs to names."""
+
+    ids = _get_all_ids(results)
+
+    resolved = {}
+    for i in range(0, len(ids), 1000):
+        batch = ids[i:i+1000]
+        _, _, res = utils.request_or_wait(
+            "{}/latest/universe/names/".format(ESI),
+            method="post",
+            json=batch,
+        )
+        if isinstance(res, list):
+            for _res in res:
+                resolved[_res["id"]] = _res["name"]
+        else:
+            LOG.warning("%s from: %r", res, batch)
+
+    _apply_all_ids(results, resolved)
+
+
+def knife(uuid, token, verify, roles):  # pylint: disable=R0914
+    """Pull all ESI data for a character_id.
+
+    Args:
+        uuid: string uuid token
+        token: SSO access token
+        verify: dictionary return from /verify/
+        roles: list of corporation roles
+    """
+
+    character_id = verify["CharacterID"]
+    LOG.warning("knife run started for character: %s", character_id)
+
+    scopes = verify["Scopes"]
+
+    _, _, public = utils.request_or_wait(
+        "{}/latest/characters/{}/".format(ESI, character_id)
+    )
+
+    if isinstance(public, str):
+        CACHE.delete("{}{}".format(Keys.processing.value, uuid))
+        utils.write_data(uuid, {"public info failure": public})
+        return
+
+    all_params = copy.deepcopy(ADDITIONAL_PARAMS)
+
+    known_params = {"character_id": character_id}
+
+    if public["corporation_id"] > 2000000:
+        known_params["corporation_id"] = public["corporation_id"]
+    else:
+        all_params.pop("corporation_id")
+
+    if "alliance_id" in public:
+        known_params["alliance_id"] = public["alliance_id"]
+
+    headers = {"Authorization": "Bearer {}".format(token)}
+    results = _get_all_data(scopes, roles, known_params, all_params, headers)
+    _add_names(results)
 
     utils.write_data(uuid, results)
     CACHE.delete("{}{}".format(Keys.processing.value, uuid))

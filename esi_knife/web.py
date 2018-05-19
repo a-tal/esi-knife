@@ -20,6 +20,7 @@ from esi_knife import Keys
 from esi_knife import CACHE
 from esi_knife import SCOPES
 from esi_knife import CLIENT_ID
+from esi_knife import EXPOSED_URL
 from esi_knife import CALLBACK_URL
 from esi_knife import utils
 from esi_knife import worker
@@ -41,10 +42,10 @@ def character_knife():
         # verify token/start knife process for character
         # do this all out of band, we might be error limited right now
         if CACHE.get("authstate.{}".format(request.args["state"])):
-            state = request.args["state"]
-            CACHE.delete("authstate.{}".format(state))
-            CACHE.set("new.{}".format(state), request.args["access_token"])
-            return redirect("/view?token={}&e=pending".format(state))
+            CACHE.delete("authstate.{}".format(request.args["state"]))
+            token = uuid.uuid4()
+            CACHE.set("new.{}".format(token), request.args["access_token"])
+            return redirect("/view/{}/".format(token))
 
     # start sso flow
     state = uuid.uuid4()
@@ -71,8 +72,8 @@ def callback_route():
     return render_template("callback.html")
 
 
-@APP.route("/view", methods=["GET"])
-def get_knife():
+@APP.route("/view/<token>/", methods=["GET"])
+def get_knife(token):
     """Direct URL access to a knife result."""
 
     if utils.rate_limit():
@@ -81,25 +82,29 @@ def get_knife():
             status=420,
         )
 
-    if "token" in request.args:
-        uuid = request.args["token"]
-        results = utils.get_data(uuid)
-        if results is None:
-            for state in (Keys.pending, Keys.processing, Keys.new):
-                if utils.list_keys("{}{}".format(state.value, uuid)):
-                    return render_template(
-                        "pending.html",
-                        token=uuid,
-                        state=state.value,
-                    )
-            return redirect("/?e=invalid_token")
+    results = utils.get_data(token)
+    if results is None:
+        for state in (Keys.pending, Keys.processing, Keys.new):
+            if utils.list_keys("{}{}".format(state.value, token)):
+                return render_template(
+                    "pending.html",
+                    token=token,
+                    state=state.value,
+                )
+        return redirect("/?e=invalid_token")
 
+    if request.headers.get("Accept") == "application/json":
         return Response(
-            ujson.dumps(results, sort_keys=True),
+            ujson.dumps(results, sort_keys=True, indent=4),
             content_type="application/json",
         )
 
-    return redirect("/?e=no_token")
+    return render_template(
+        "view.html",
+        data=ujson.dumps(results, sort_keys=True),
+        exposed_url=EXPOSED_URL,
+        token=token,
+    )
 
 
 @APP.route("/metrics", methods=["GET"])

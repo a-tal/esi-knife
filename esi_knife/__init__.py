@@ -115,6 +115,10 @@ CLIENT_ID = os.environ.get(
     "KNIFE_CLIENT_ID",
     "bfca2dd3c89a4a3bb09bdadd9e3908e8",
 )
+EXPOSED_URL = os.environ.get(
+    "KNIFE_EXPOSED_URL",
+    "http://localhost:8888",
+)
 
 
 class Keys(enum.Enum):
