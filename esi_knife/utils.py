@@ -1,7 +1,6 @@
 """ESI Knife utils."""
 
 
-import os
 import gzip
 import time
 import base64
@@ -16,6 +15,7 @@ from requests.adapters import HTTPAdapter
 
 from esi_knife import __version__
 from esi_knife import Keys
+from esi_knife import APP
 from esi_knife import ESI
 from esi_knife import LOG
 from esi_knife import CACHE
@@ -92,22 +92,31 @@ def write_data(uuid, data):
         LOG.warning("Failed to save data: %r", error)
 
 
-def request_or_wait(url, *args, _as_res=False, **kwargs):
+def request_or_wait(url, *args, _as_res=False, page=None, **kwargs):
     """Request the URL, or wait if we're error limited."""
 
-    try:
+    check_x_pages = True
+    if page:
+        kwargs["params"] = kwargs.get("params", {})
+        kwargs["params"]["page"] = page
+        check_x_pages = False
+        LOG.warning("requesting: %s (page %d)", url, page)
+    else:
         LOG.warning("requesting: %s", url)
+
+    try:
         res = SESSION.get(url, *args, **kwargs)
         res.raise_for_status()
-        return url, res if _as_res else res.json()
     except Exception as err:
         try:
             if res.status_code == 420:
                 wait = int(res.headers.get("X-Esi-Error-Limit-Reset", 1)) + 1
+                APP.error_limited = True
                 LOG.warning("hit the error limit, waiting %d seconds", wait)
                 # error limited. wait out the window then carry on
                 gevent.sleep(wait)
-                return request_or_wait(url, *args, _as_res=_as_res, **kwargs)
+                return request_or_wait(url, *args, _as_res=_as_res, page=page,
+                                       **kwargs)
         except Exception as error:
             LOG.warning("error handling error: %r: %r", err, error)
 
@@ -117,10 +126,22 @@ def request_or_wait(url, *args, _as_res=False, **kwargs):
             content = res.text
 
         # /shrug some other error, can't win em all
-        return url, res if _as_res else "Error fetching data: {} {}".format(
-            res.status_code,
-            content,
-        )
+        return None, url, \
+            res if _as_res else "Error fetching data: {} {}".format(
+                res.status_code,
+                content,
+            )
+    else:
+        if check_x_pages:
+            try:
+                pages = list(range(2, int(res.headers.get("X-Pages", 0))))
+            except Exception as error:
+                LOG.warning("error checking x-pages for %s: %r", url, error)
+                pages = None
+        else:
+            pages = page
+
+        return pages, url, res if _as_res else res.json()
 
 
 def refresh_spec():
@@ -139,7 +160,7 @@ def refresh_spec():
         if spec_details.get("etag"):
             headers["If-None-Match"] = spec_details["etag"]
 
-        _, res = request_or_wait(
+        _, _, res = request_or_wait(
             "{}/latest/swagger.json".format(ESI),
             _as_res=True,
             headers=headers,
@@ -179,9 +200,9 @@ def rate_limit():
     """Apply a rate limit."""
 
     key = "".join((Keys.rate_limit.value, get_ip()))
-    requests = CACHE.get(key) or 0
-    if requests >= 20:
+    reqs = CACHE.get(key) or 0
+    if reqs >= 20:
         return True
 
-    CACHE.set(key, requests + 1, timeout=60)
+    CACHE.set(key, reqs + 1, timeout=60)
     return False

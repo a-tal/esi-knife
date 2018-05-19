@@ -2,7 +2,6 @@
 
 
 import gc
-import os
 import copy
 from traceback import format_exception
 from concurrent.futures import as_completed
@@ -58,7 +57,7 @@ def process_new():
             timeout=70,
         )
         headers = {"Authorization": "Bearer {}".format(token)}
-        _, res = utils.request_or_wait(
+        _, _, res = utils.request_or_wait(
             "{}/verify/".format(ESI),
             headers=headers,
         )
@@ -68,7 +67,7 @@ def process_new():
             utils.write_data(uuid, {"auth failure": res})
             failed = True
         else:
-            _, roles = utils.request_or_wait(
+            _, _, roles = utils.request_or_wait(
                 "{}/latest/characters/{}/roles/".format(
                     ESI,
                     res["CharacterID"],
@@ -231,17 +230,70 @@ def expand_params(scopes, roles, spec,  # pylint: disable=R0914,R0913
                     headers=headers,
                 )] = (url, parent, id_type)
 
-        for future in as_completed(futures):
-            templated_url, parent, id_type = futures[future]
-            url, data = future.result()
+        pages = {}
+        while True:
+            completed = []
+            expansion = {}
+            for future in as_completed(futures):
+                completed.append(future)
+                templated_url, parent, id_type = futures[future]
+                page, url, data = future.result()
+                page_key = (templated_url, parent, id_type, url)
 
+                if page and isinstance(page, list):
+                    pages[page_key] = {1: data}
+                    for _page in page:
+                        expansion[pool.submit(
+                            utils.request_or_wait,
+                            url,
+                            page=_page,
+                            headers=headers,
+                        )] = (templated_url, parent, id_type)
+                elif isinstance(page, int):
+                    if isinstance(data, list):
+                        pages[page_key][page] = data
+                    else:
+                        LOG.warning("worker page expansion error: %r", data)
+                else:
+                    if templated_url in transform:
+                        expansion_results[url] = data
+                        all_params[parent][id_type] = transform[templated_url](
+                            data
+                        )
+                    elif isinstance(data, list):
+                        all_params[parent][id_type] = data
+                    else:
+                        LOG.warning("worker expansion error: %r", data)
+
+            for complete in completed:
+                futures.pop(complete)
+            futures.update(expansion)
+
+            if not futures:
+                break
+
+        for details, page_data in pages.items():
+            templated_url, parent, id_type, url = details
+            data = []
+            for page in sorted(page_data):
+                data.extend(page_data[page])
+            if not data:
+                continue
             if templated_url in transform:
                 expansion_results[url] = data
-                all_params[parent][id_type] = transform[templated_url](data)
-            elif isinstance(data, list):
-                all_params[parent][id_type] = data
+                try:
+                    all_params[parent][id_type] = transform[templated_url](
+                        data
+                    )
+                except Exception as error:
+                    LOG.warning(
+                        "failed to transform %s. error: %r data: %r",
+                        url,
+                        error,
+                        data,
+                    )
             else:
-                LOG.warning("worker expansion error: %r", data)
+                all_params[parent][id_type] = data
 
         for parent, purged_ids in purge.items():
             for purged_id in purged_ids:
@@ -268,7 +320,7 @@ def knife(uuid, token, verify, roles):  # pylint: disable=R0914
 
     scopes = verify["Scopes"]
 
-    _, public = utils.request_or_wait(
+    _, _, public = utils.request_or_wait(
         "{}/latest/characters/{}/".format(ESI, character_id)
     )
 
@@ -303,6 +355,8 @@ def knife(uuid, token, verify, roles):  # pylint: disable=R0914
 
     urls = build_urls(scopes, roles, spec, known_params, all_params)
 
+    page_expansions = {}  # {url: {page: results}}
+
     with ThreadPoolExecutor(max_workers=20) as pool:
         futures = []
         for url in urls:
@@ -312,9 +366,39 @@ def knife(uuid, token, verify, roles):  # pylint: disable=R0914
                 headers=headers,
             ))
 
-        for future in as_completed(futures):
-            url, result = future.result()
-            results[url] = result
+        while True:
+            expansion_requests = []
+            completed_futures = []
+            for future in as_completed(futures):
+                completed_futures.append(future)
+                pages, url, result = future.result()
+                if pages and isinstance(pages, list):
+                    page_expansions[url] = {1: result}
+                    for page in pages:
+                        expansion_requests.append(pool.submit(
+                            utils.request_or_wait,
+                            url,
+                            page=page,
+                            headers=headers,
+                        ))
+                elif isinstance(pages, int):
+                    page_expansions[url][pages] = result
+                else:
+                    results[url] = result
+
+            for complete in completed_futures:
+                futures.remove(complete)
+            futures.extend(expansion_requests)
+
+            if not futures:
+                break
+
+    for url, pages in page_expansions.items():
+        data = []
+        for page in sorted(pages):
+            data.extend(pages[page])
+        if data:
+            results[url] = data
 
     utils.write_data(uuid, results)
     CACHE.delete("{}{}".format(Keys.processing.value, uuid))

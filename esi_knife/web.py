@@ -5,7 +5,6 @@ from gevent import monkey
 monkey.patch_all()
 
 
-import os
 import uuid
 from datetime import datetime
 
@@ -17,7 +16,6 @@ from flask import Response
 from flask import render_template
 
 from esi_knife import APP
-from esi_knife import LOG
 from esi_knife import Keys
 from esi_knife import CACHE
 from esi_knife import SCOPES
@@ -117,6 +115,7 @@ def metrics_index():
         completed=len(utils.list_keys(Keys.complete.value)),
         alltime=CACHE.get(Keys.alltime.value) or 0,
         worker=not APP.knife_worker.dead,
+        error_limited=APP.error_limited,
         now=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
     )
 

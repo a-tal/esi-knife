@@ -22,6 +22,7 @@ __version__ = "0.0.2"
 ESI = os.environ.get("ESI_BASE_URL", "https://esi.evetech.net")
 
 APP = Flask(__name__)
+APP.error_limited = False
 
 LOG = logging.getLogger("esi-knife")
 LOG.setLevel(int(os.environ.get("KNIFE_LOG_LEVEL", logging.INFO)))
