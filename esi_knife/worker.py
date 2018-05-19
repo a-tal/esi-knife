@@ -4,6 +4,7 @@
 import re
 import gc
 import copy
+import random
 from traceback import format_exception
 from concurrent.futures import as_completed
 from concurrent.futures import ThreadPoolExecutor
@@ -487,12 +488,11 @@ def _apply_all_ids(results, ids):
             _recurse_apply_ids(results[route], ids)
 
 
-def _add_names(results):
-    """Best-effort resolve IDs to names."""
-
-    ids = _get_all_ids(results)
+def _get_names(ids):
+    """Resolve ids to names."""
 
     resolved = {}
+    failed = []
     for i in range(0, len(ids), 1000):
         batch = ids[i:i+1000]
         _, _, res = utils.request_or_wait(
@@ -504,9 +504,39 @@ def _add_names(results):
             for _res in res:
                 resolved[_res["id"]] = _res["name"]
         else:
-            LOG.warning("%s from: %r", res, batch)
+            failed.extend(batch)
 
-    _apply_all_ids(results, resolved)
+    while failed:
+        still_failed = []
+        random.shuffle(failed)
+        batch_size = min(int(len(failed) / 2), 500)
+        for i in range(0, len(failed), batch_size):
+            batch = failed[i:i+batch_size]
+
+            _, _, res = utils.request_or_wait(
+                "{}/latest/universe/names/".format(ESI),
+                method="post",
+                json=batch,
+            )
+            if isinstance(res, list):
+                for _res in res:
+                    resolved[_res["id"]] = _res["name"]
+            else:
+                still_failed.extend(batch)
+
+        failed = still_failed
+
+        if batch_size == 1 and still_failed:
+            LOG.warning("failed to resolve: %r", still_failed)
+            break
+
+    return resolved
+
+
+def _add_names(results):
+    """Best-effort resolve IDs to names."""
+
+    _apply_all_ids(results, _get_names(_get_all_ids(results)))
 
 
 def get_results(public, character_id, scopes, roles, headers):
