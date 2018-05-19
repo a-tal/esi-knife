@@ -509,7 +509,7 @@ def _get_names(ids):
     while failed:
         still_failed = []
         random.shuffle(failed)
-        batch_size = min(int(len(failed) / 2), 500)
+        batch_size = max(min(int(len(failed) / 2), 500), 1)
         for i in range(0, len(failed), batch_size):
             batch = failed[i:i+batch_size]
 
