@@ -120,6 +120,7 @@ def request_or_wait(url, *args, _as_res=False, page=None, method="get",
                 LOG.warning("hit the error limit, waiting %d seconds", wait)
                 # error limited. wait out the window then carry on
                 gevent.sleep(wait)
+                APP.error_limited = False
                 return request_or_wait(url, *args, _as_res=_as_res, page=page,
                                        method=method, **kwargs)
         except Exception as error:
