@@ -44,10 +44,10 @@ except ImportError:
     from zlib import decompress
 
 
-def get_access_token(client_id, port, scopes=SCOPES):
+def get_access_token(client_id=None, port=None, scopes=None):
     """Generate a new access token.
 
-    Args:
+    KWargs:
         client_id: SSO client ID to use
         port: localhost callback port to redirect to
         scopes: string, formatted list of scopes to request
@@ -58,6 +58,11 @@ def get_access_token(client_id, port, scopes=SCOPES):
     Raises:
         SystemExit on failure
     """
+
+    client_id = client_id or "13927a4b444a46a3ad9a2bd99059181e"
+    port = port or 27392
+    if scopes is None:
+        scopes = SCOPES
 
     state = str(uuid.uuid4())
     webbrowser.open((
@@ -195,10 +200,7 @@ def write_results(results, character_id):
 def run(args):
     """Create a new knife file."""
 
-    token = get_access_token(
-        args["--client-id"] or "13927a4b444a46a3ad9a2bd99059181e",
-        args["--port"] or 27392,
-    )
+    token = get_access_token(args["--client-id"], args["--port"])
 
     headers = {"Authorization": "Bearer {}".format(token)}
     character_id, scopes = verify_token(headers)
