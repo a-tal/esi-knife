@@ -1,7 +1,6 @@
 """ESI Knife utils."""
 
 
-import gzip
 import time
 import base64
 import codecs
@@ -20,6 +19,15 @@ from esi_knife import APP
 from esi_knife import ESI
 from esi_knife import LOG
 from esi_knife import CACHE
+
+
+try:
+    from gzip import compress
+    from gzip import decompress
+except ImportError:
+    # python2
+    from zlib import compress
+    from zlib import decompress
 
 
 EXPIRY = 604800  # 7 days
@@ -53,7 +61,7 @@ def get_data(uuid):
             return None
 
         try:
-            return ujson.loads(gzip.decompress(base64.b64decode(content)))
+            return ujson.loads(decompress(base64.b64decode(content)))
         except Exception as error:
             LOG.warning("failed to decode %s: %r", content, error)
         else:
@@ -68,12 +76,17 @@ def get_data(uuid):
 def list_keys(prefix):
     """Return all keys with the given prefix."""
 
-    prefix_len = len(CACHE.cache.key_prefix)
+    prefix_len = len(getattr(CACHE.cache, "key_prefix", ""))
+    if hasattr(CACHE.cache, "_client"):
+        return [
+            codecs.decode(x)[prefix_len:]
+            for x in CACHE.cache._client.keys(  # pylint: disable=W0212
+                "{}{}*".format(CACHE.cache.key_prefix, prefix)
+            )
+        ]
     return [
-        codecs.decode(x)[prefix_len:]
-        for x in CACHE.cache._client.keys(  # pylint: disable=W0212
-            "{}{}*".format(CACHE.cache.key_prefix, prefix)
-        )
+        x for x in CACHE.cache._cache  # pylint: disable=protected-access
+        if x.startswith(prefix)
     ]
 
 
@@ -84,7 +97,7 @@ def write_data(uuid, data):
         CACHE.set(
             "{}{}".format(Keys.complete.value, uuid),
             codecs.decode(
-                base64.b64encode(gzip.compress(codecs.encode(
+                base64.b64encode(compress(codecs.encode(
                     ujson.dumps(data),
                     "utf-8",
                 ))),
@@ -96,8 +109,7 @@ def write_data(uuid, data):
         LOG.warning("Failed to save data: %r", error)
 
 
-def request_or_wait(url, *args, _as_res=False, page=None, method="get",
-                    **kwargs):
+def request_or_wait(url, _as_res=False, page=None, method="get", **kwargs):
     """Request the URL, or wait if we're error limited."""
 
     check_x_pages = True
@@ -105,12 +117,12 @@ def request_or_wait(url, *args, _as_res=False, page=None, method="get",
         kwargs["params"] = kwargs.get("params", {})
         kwargs["params"]["page"] = page
         check_x_pages = False
-        LOG.warning("requesting: %s (page %d)", url, page)
+        LOG.debug("requesting: %s (page %d)", url, page)
     else:
-        LOG.warning("requesting: %s", url)
+        LOG.debug("requesting: %s", url)
 
     try:
-        res = getattr(SESSION, method)(url, *args, **kwargs)
+        res = getattr(SESSION, method)(url, **kwargs)
         res.raise_for_status()
     except Exception as err:
         try:
@@ -121,7 +133,7 @@ def request_or_wait(url, *args, _as_res=False, page=None, method="get",
                 # error limited. wait out the window then carry on
                 gevent.sleep(wait)
                 APP.error_limited = False
-                return request_or_wait(url, *args, _as_res=_as_res, page=page,
+                return request_or_wait(url, _as_res=_as_res, page=page,
                                        method=method, **kwargs)
         except Exception as error:
             LOG.warning("error handling error: %r: %r", err, error)

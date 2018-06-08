@@ -17,14 +17,11 @@ Options:
 
 
 import os
-import gzip
 import json
 import uuid
 import base64
 import codecs
 import webbrowser
-from http import server
-from urllib import parse
 
 import docopt
 
@@ -34,12 +31,26 @@ from esi_knife.utils import request_or_wait
 from esi_knife.worker import get_results
 
 
-def get_access_token(client_id, port):
+try:
+    from http import server
+    from urllib.parse import parse_qsl
+    from gzip import compress
+    from gzip import decompress
+except ImportError:
+    # python2
+    import BaseHTTPServer as server
+    from urlparse import parse_qsl
+    from zlib import compress
+    from zlib import decompress
+
+
+def get_access_token(client_id, port, scopes=SCOPES):
     """Generate a new access token.
 
     Args:
         client_id: SSO client ID to use
         port: localhost callback port to redirect to
+        scopes: string, formatted list of scopes to request
 
     Returns:
         string access token
@@ -56,7 +67,7 @@ def get_access_token(client_id, port):
     ).format(
         port=port,
         client_id=client_id,
-        scopes=SCOPES,
+        scopes=scopes,
         state=state,
     ))
 
@@ -74,7 +85,7 @@ def get_access_token(client_id, port):
             """Accept a GET request."""
 
             if "?" in self.path:
-                query_string = dict(parse.parse_qsl(self.path.split("?")[1]))
+                query_string = dict(parse_qsl(self.path.split("?")[1]))
                 auth["token"] = query_string.get("access_token", None)
                 msg = "<h1>Token received</h1><h2>(you can close this)</h2>"
             else:
@@ -91,9 +102,9 @@ def get_access_token(client_id, port):
                 codecs.encode("<html><body>{}</body></html>".format(msg))
             )
 
-    with server.HTTPServer(("localhost", port), Callback) as httpd:
-        httpd.handle_request()
-        httpd.handle_request()
+    httpd = server.HTTPServer(("localhost", port), Callback)
+    httpd.handle_request()
+    httpd.handle_request()
 
     if not auth.get("token"):
         raise SystemExit("failed to acquire auth token")
@@ -153,7 +164,7 @@ def display_results(filename):
 
     try:
         with open(filename, "r") as infile:
-            data = json.loads(gzip.decompress(base64.b64decode(infile.read())))
+            data = json.loads(decompress(base64.b64decode(infile.read())))
     except Exception as error:
         raise SystemExit("Failed to read {}: {!r}".format(filename, error))
 
@@ -171,7 +182,7 @@ def write_results(results, character_id):
 
     with open(fname, "w") as openout:
         openout.write(codecs.decode(
-            base64.b64encode(gzip.compress(codecs.encode(
+            base64.b64encode(compress(codecs.encode(
                 json.dumps(results),
                 "utf-8",
             ))),

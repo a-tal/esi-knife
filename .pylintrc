@@ -2,6 +2,7 @@
 
 extension-pkg-whitelist=ujson
 jobs=4
+generated-members=LOG
 
 
 [MESSAGES CONTROL]

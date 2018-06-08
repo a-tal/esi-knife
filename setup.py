@@ -58,7 +58,10 @@ setup(
         "Programming Language :: Python :: 3.6",
         "License :: OSI Approved :: MIT License",
     ],
-    extras_require={"deploy": ["gunicorn"]},
+    extras_require={
+        "deploy": ["gunicorn"],
+        ":python_version < '3'": ["enum34", "futures"],
+    },
     include_package_data=True,
     zip_safe=False,
     package_data={

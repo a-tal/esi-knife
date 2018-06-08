@@ -2,18 +2,18 @@
 
 
 import os
-import sys
 import enum
+import socket
 import logging
-from urllib import parse
+
+try:
+    from urllib.parse import quote
+except ImportError:
+    # python2
+    from urllib import quote
 
 from flask_cache import Cache
-
 from flask import Flask
-
-
-if sys.version_info < (3, 4):
-    raise SystemExit("Python 3.5+ required")
 
 
 __version__ = "0.0.2"
@@ -24,28 +24,54 @@ ESI = os.environ.get("ESI_BASE_URL", "https://esi.evetech.net")
 APP = Flask(__name__)
 APP.error_limited = False
 
-LOG = logging.getLogger("esi-knife")
-LOG.setLevel(int(os.environ.get("KNIFE_LOG_LEVEL", logging.INFO)))
-APP.logger.addHandler(LOG)  # pylint: disable=no-member
 
+_GUNICORN_LOG = logging.getLogger("gunicorn.error")
+APP.logger.handlers = _GUNICORN_LOG.handlers
+APP.logger.setLevel(_GUNICORN_LOG.level)  # pylint: disable=no-member
+LOG = APP.logger
+del _GUNICORN_LOG
+
+
+_REDIS_HOST = os.environ.get("ESI_KNIFE_REDIS_HOST", "redis")
+_REDIS_PORT = int(os.environ.get("ESI_KNIFE_REDIS_PORT", 6379))
+_TEST_SOCKET = socket.socket()
 
 try:
-    with open("/app/redis-password", "r") as openpasswd:
-        _REDIS_PASSWD = openpasswd.read().strip()
-except Exception:
-    _REDIS_PASSWD = None
+    _TEST_SOCKET.connect((_REDIS_HOST, _REDIS_PORT))
+except Exception as error:
+    LOG.info("redis unavailable: %r", error)
+    CACHE = Cache(APP, config={
+        "CACHE_TYPE": "simple",
+        "CACHE_DEFAULT_TIMEOUT": 300,
+    })
+else:
+    try:
+        with open("/app/redis-password", "r") as openpasswd:
+            _REDIS_PASSWD = openpasswd.read().strip()
+    except Exception:
+        _REDIS_PASSWD = None
+
+    CACHE = Cache(APP, config={
+        "CACHE_TYPE": os.environ.get("ESI_KNIFE_CACHE_TYPE", "redis"),
+        "CACHE_REDIS_URL": "redis://{}:{}/{}".format(
+            _REDIS_HOST,
+            _REDIS_PORT,
+            os.environ.get("ESI_KNIFE_REDIS_DB", "0"),
+        ),
+        "CACHE_DEFAULT_TIMEOUT": 300,
+        "CACHE_KEY_PREFIX": "knife.",
+        "CACHE_REDIS_PASSWORD": _REDIS_PASSWD,
+    })
+    del _REDIS_PASSWD
+finally:
+    _TEST_SOCKET.close()
+
+del _TEST_SOCKET
+del _REDIS_PORT
+del _REDIS_HOST
 
 
-CACHE = Cache(APP, config={
-    "CACHE_TYPE": "redis",
-    "CACHE_REDIS_URL": "redis://redis:6379/0",
-    "CACHE_DEFAULT_TIMEOUT": 300,
-    "CACHE_KEY_PREFIX": "knife.",
-    "CACHE_REDIS_PASSWORD": _REDIS_PASSWD,
-})
-del _REDIS_PASSWD
-
-SCOPES = parse.quote(" ".join([
+SCOPES = quote(" ".join([
     "esi-alliances.read_contacts.v1",
     "esi-assets.read_assets.v1",
     "esi-assets.read_corporation_assets.v1",
@@ -107,7 +133,7 @@ SCOPES = parse.quote(" ".join([
 ]))
 
 
-CALLBACK_URL = parse.quote(os.environ.get(
+CALLBACK_URL = quote(os.environ.get(
     "KNIFE_CALLBACK_URL",
     "http://localhost:8888/callback",
 ))

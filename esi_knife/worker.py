@@ -43,7 +43,7 @@ def process_new():
 
     for new_key in utils.list_keys(Keys.new.value):
         uuid = new_key.split(".")[-1]
-        LOG.warning("processing new uuid: %r", uuid)
+        LOG.info("processing new uuid: %r", uuid)
 
         token = CACHE.get(new_key)
         CACHE.delete(new_key)
@@ -570,7 +570,7 @@ def knife(uuid, token, verify, roles):  # pylint: disable=R0914
     """
 
     character_id = verify["CharacterID"]
-    LOG.warning("knife run started for character: %s", character_id)
+    LOG.info("knife run started for character: %s", character_id)
 
     scopes = verify["Scopes"]
 
@@ -589,13 +589,13 @@ def knife(uuid, token, verify, roles):  # pylint: disable=R0914
     utils.write_data(uuid, results)
     CACHE.delete("{}{}".format(Keys.processing.value, uuid))
     CACHE.cache.inc(Keys.alltime.value, 1)
-    LOG.warning("completed character: %r", character_id)
+    LOG.info("completed character: %r", character_id)
 
 
 def main():
     """Main worker entrypoint."""
 
-    LOG.warning("worker online")
+    LOG.info("knife worker online")
 
     # until we can resume jobs
     for state in (Keys.processing.value, Keys.pending.value):

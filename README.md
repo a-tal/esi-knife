@@ -21,6 +21,28 @@ No. Not in any way shape or form. This is entirely a personal project.
 
 Everything should "just work". If you need to adjust the SSO callback or exposed port, the environment variables are configured in the `docker-compose.yaml` file.
 
+## Running locally without docker
+
+If you don't have docker, you can either run this locally as a CLI, or as a website.
+
+Both python 2.7 and 3.5+ are supported.
+
+### Local CLI
+
+```bash
+$ pip install git+https://github.com/a-tal/esi-knife.git
+$ knife --help
+```
+
+### Local Web
+
+```bash
+$ pip install git+https://github.com/a-tal/esi-knife.git[deploy]
+$ gunicorn --worker-class=gevent --bind=localhost:8888 "esi_knife.web:main()"
+```
+
+Now open http://localhost:8888 in your favorite web browser.
+
 ## TODOs
 
 If you want to help out with something from here pull requests are very welcomed.
