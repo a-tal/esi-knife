@@ -31,7 +31,6 @@ ADDITIONAL_PARAMS = {
     "corporation_id": {
         "observer_id": "/corporation/{corporation_id}/mining/observers/",
         "contract_id": "/corporations/{corporation_id}/contracts/",
-        "outpost_id": "/corporations/{corporation_id}/outposts/",
         "starbase_id": "/corporations/{corporation_id}/starbases/",
         "division": "/corporations/{corporation_id}/wallets/",
     },
